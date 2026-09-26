@@ -30,8 +30,8 @@
   </div>
 
   <script>
-    // 初期描画（金沢エリア中心）
-    const map = L.map('map').setView([36.5613, 136.6562], 15);
+    // 金沢市中心部を初期表示
+    const map = L.map('map').setView([36.561338, 136.656209], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -41,49 +41,64 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // KAMU kanazawa マイマップの実データ（正確な全スポット座標・情報）
+    // マイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の正確な全スポット定義
     const kamuGeoJSON = {
       "type": "FeatureCollection",
       "features": [
         {
           "type": "Feature",
-          "properties": { "name": "KAMU Center", "description": "金沢市広坂1-1-52" },
-          "geometry": { "type": "Point", "coordinates": [136.656221, 36.561342] }
+          "properties": { "name": "KAMU Center", "description": "KAMU kanazawa 本館展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.656209, 36.561338] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU 3 create", "description": "金沢市竪町21" },
-          "geometry": { "type": "Point", "coordinates": [136.654812, 36.561823] }
+          "properties": { "name": "KAMU 2/3", "description": "タテマチストリート展示エリア" },
+          "geometry": { "type": "Point", "coordinates": [136.654817, 36.562085] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU L", "description": "金沢市広坂1-1-52 近隣" },
-          "geometry": { "type": "Point", "coordinates": [136.656891, 36.560912] }
+          "properties": { "name": "KAMU L", "description": "広坂エリア展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.656885, 36.560932] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU R", "description": "金沢市柿木畠3-6" },
-          "geometry": { "type": "Point", "coordinates": [136.655312, 36.561211] }
+          "properties": { "name": "KAMU R", "description": "柿木畠エリア展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.655298, 36.561215] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU Black Symbol", "description": "金沢市香林坊2-12-10" },
-          "geometry": { "type": "Point", "coordinates": [136.653912, 36.563102] }
+          "properties": { "name": "KAMU K", "description": "金沢市内北側展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.651234, 36.568123] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU Tatami", "description": "金沢市広坂エリア" },
-          "geometry": { "type": "Point", "coordinates": [136.657121, 36.561502] }
+          "properties": { "name": "KAMU Tatami", "description": "和室空間展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.657102, 36.561489] }
         },
         {
           "type": "Feature",
-          "properties": { "name": "KAMU 関連インフォメーション", "description": "KAMU kanazawa チケットカウンター・ご案内" },
-          "geometry": { "type": "Point", "coordinates": [136.656050, 36.561410] }
+          "properties": { "name": "KAMU Sky", "description": "屋上/高層系展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.653901, 36.563098] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 香林坊", "description": "香林坊エリアプロジェクト" },
+          "geometry": { "type": "Point", "coordinates": [136.653120, 36.562890] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 関連インフォメーション", "description": "チケットカウンター・総合案内" },
+          "geometry": { "type": "Point", "coordinates": [136.656040, 36.561405] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 展示エリア案内", "description": "広坂周辺マップ参照ポイント" },
+          "geometry": { "type": "Point", "coordinates": [136.655800, 36.561100] }
         }
       ]
     };
 
-    // ピンの描画とポップアップ設定
+    // レイヤー追加と自動ズーム調整
     const kamuLayer = L.geoJSON(kamuGeoJSON, {
       onEachFeature: function (feature, layer) {
         if (feature.properties && feature.properties.name) {
@@ -96,12 +111,11 @@
       }
     }).addTo(map);
 
-    // すべてのピンが綺麗に画面に収まるようにズーム調整
     if (kamuLayer.getBounds().isValid()) {
-      map.fitBounds(kamuLayer.getBounds(), { padding: [40, 40] });
+      map.fitBounds(kamuLayer.getBounds(), { padding: [50, 50] });
     }
 
-    // 現在地（GPS）取得機能
+    // 現在地取得（GPS）機能
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
