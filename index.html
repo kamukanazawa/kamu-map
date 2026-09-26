@@ -7,8 +7,7 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- KML/KMZ 直接読み込みプラグイン -->
-  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,8 +30,25 @@
     <div id="map"></div>
   </div>
 
+  <!-- KMLデータを直接HTML内に保持 -->
+  <script id="kmlData" type="text/xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>KAMU kanazawa </name>
+    <description>KAMU kanazawの作品展示場所、関連企画情報を表示します</description>
+    <NetworkLink>
+      <name>KAMU kanazawa </name>
+      <Link>
+        <href><![CDATA[https://www.google.com/maps/d/u/3/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U]]></href>
+      </Link>
+    </NetworkLink>
+  </Document>
+</kml>
+
+  </script>
+
   <script>
-    // 金沢周辺を中心に初期表示
     const map = L.map('map').setView([36.5613, 136.6562], 14);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -43,29 +59,35 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // KAMU kanazawa マイマップデータ読み込み（Google直接アクセス）
-    const kmlUrl = 'https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U';
-    
-    // omnivoreライブラリを使用してKMLを解析・描画
-    const runLayer = omnivore.kml(kmlUrl)
-      .on('ready', function() {
-        // 全ピンが画面に収まるように自動ズーム調整
-        map.fitBounds(runLayer.getBounds());
-        
-        // ピンにポップアップ（スポット名）を追加
-        runLayer.eachLayer(function(layer) {
-          if (layer.feature && layer.feature.properties) {
-            let name = layer.feature.properties.name || '';
-            let desc = layer.feature.properties.description || '';
-            if (name) {
-              layer.bindPopup(`<strong>${name}</strong><br><span style="font-size:12px;color:#555;">${desc}</span>`);
+    // 埋め込んだKMLデータを解析してピンを描画（PC/スマホ共通・外部通信なし）
+    try {
+      const kmlText = document.getElementById('kmlData').textContent.trim();
+      if (kmlText && kmlText.length > 50) {
+        const domParser = new DOMParser();
+        const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
+        const geoJson = toGeoJSON.kml(kmlDom);
+
+        const kmlLayer = L.geoJSON(geoJson, {
+          onEachFeature: function (feature, layer) {
+            if (feature.properties && feature.properties.name) {
+              let popup = `<strong>${feature.properties.name}</strong>`;
+              if (feature.properties.description) {
+                popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
+              }
+              layer.bindPopup(popup);
             }
           }
-        });
-      })
-      .addTo(map);
+        }).addTo(map);
 
-    // 位置情報（GPS）取得
+        if (kmlLayer.getBounds().isValid()) {
+          map.fitBounds(kmlLayer.getBounds());
+        }
+      }
+    } catch (e) {
+      console.error("KML読み込みエラー:", e);
+    }
+
+    // 位置情報（GPS）取得処理
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
