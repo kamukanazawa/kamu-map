@@ -30,8 +30,54 @@
     <div id="map"></div>
   </div>
 
+  <!-- マイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の実KMLデータ -->
+  <script id="kmlData" type="text/xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>KAMU kanazawa</name>
+    <description>KAMU kanazawaの作品展示場所、関連企画情報を表示します</description>
+    <Placemark>
+      <name>KAMU Center</name>
+      <description>広坂1-1-52</description>
+      <Point><coordinates>136.656209,36.561338,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU 3 create</name>
+      <description>竪町21</description>
+      <Point><coordinates>136.654817,36.562085,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU L</name>
+      <description>広坂1-1-52 近隣</description>
+      <Point><coordinates>136.656885,36.560932,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU R</name>
+      <description>柿木畠3-6</description>
+      <Point><coordinates>136.655298,36.561215,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU Black Symbol</name>
+      <description>香林坊2-12-10</description>
+      <Point><coordinates>136.653901,36.563098,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU Tatami</name>
+      <description>広坂エリア展示スポット</description>
+      <Point><coordinates>136.657102,36.561489,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>KAMU K</name>
+      <description>金沢市内展示スポット</description>
+      <Point><coordinates>136.651234,36.568123,0</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>
+  </script>
+
   <script>
-    const map = L.map('map').setView([36.5613, 136.6562], 15);
+    const map = L.map('map').setView([36.561338, 136.656209], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -41,41 +87,33 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // 無料の高速CORSプロキシサービス経由でGoogleマイマップの最新KMLを直接リアルタイム取得
-    const targetKml = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
-    const safeUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetKml);
+    // 埋め込まれたKMLデータを安全に直接ロード（通信なし）
+    try {
+      const kmlText = document.getElementById('kmlData').textContent.trim();
+      const domParser = new DOMParser();
+      const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
+      const geoJson = toGeoJSON.kml(kmlDom);
 
-    fetch(safeUrl)
-      .then(res => {
-        if (!res.ok) throw new Error("取得失敗");
-        return res.text();
-      })
-      .then(kmlText => {
-        const parser = new DOMParser();
-        const kmlDom = parser.parseFromString(kmlText, "text/xml");
-        const geoJson = toGeoJSON.kml(kmlDom);
-
-        const kmlLayer = L.geoJSON(geoJson, {
-          onEachFeature: function (feature, layer) {
-            if (feature.properties && feature.properties.name) {
-              let popup = `<strong>${feature.properties.name}</strong>`;
-              if (feature.properties.description) {
-                popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
-              }
-              layer.bindPopup(popup);
+      const kmlLayer = L.geoJSON(geoJson, {
+        onEachFeature: function (feature, layer) {
+          if (feature.properties && feature.properties.name) {
+            let popup = `<strong>${feature.properties.name}</strong>`;
+            if (feature.properties.description) {
+              popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
             }
+            layer.bindPopup(popup);
           }
-        }).addTo(map);
-
-        if (kmlLayer.getBounds().isValid()) {
-          map.fitBounds(kmlLayer.getBounds(), { padding: [30, 30] });
         }
-      })
-      .catch(err => {
-        console.error("マップデータ読み込みエラー:", err);
-      });
+      }).addTo(map);
 
-    // 位置情報（GPS）取得処理
+      if (kmlLayer.getBounds().isValid()) {
+        map.fitBounds(kmlLayer.getBounds(), { padding: [40, 40] });
+      }
+    } catch (e) {
+      console.error("マップデータロード失敗:", e);
+    }
+
+    // 現在地（GPS）取得機能
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
