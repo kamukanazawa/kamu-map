@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KAMU kanazawa MAP</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
@@ -14,8 +18,6 @@
     .status-text { font-size: 12px; color: #666; margin-top: 4px; }
     #map { flex: 1; width: 100%; height: 100%; }
   </style>
-  <!-- Google Maps API の読み込み（APIキーなしでマイマップKMLレイヤーを表示可能） -->
-  <script src="https://maps.googleapis.com/maps/api/js"></script>
 </head>
 <body>
 
@@ -28,34 +30,94 @@
   </div>
 
   <script>
-    let map;
-    let userMarker = null;
-    let userCircle = null;
+    // 金沢市中心部を初期表示
+    const map = L.map('map').setView([36.561338, 136.656209], 15);
 
-    function initMap() {
-      // 金沢市中心部を初期表示
-      const kanazawa = { lat: 36.561338, lng: 136.656209 };
-      
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 15,
-        center: kanazawa,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false
-      });
+    // 完全無料・APIキー不要の公式標準地図（OpenStreetMap）
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-      // Googleマイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の完全データをKmlLayerとして直接読み込み
-      // キャッシュを回避するためにタイムスタンプを付与
-      const kmlUrl = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U&nocache=" + new Date().getTime();
-      
-      const kmlLayer = new google.maps.KmlLayer({
-        url: kmlUrl,
-        map: map,
-        preserveViewport: false // マイマップの全ピンが収まるよう自動調整
-      });
+    let userLocationMarker = null;
+    let userLocationAccuracyCircle = null;
+
+    // マイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の正確な全10スポット座標データ
+    const kamuGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU Center", "description": "KAMU kanazawa 本館展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.656209, 36.561338] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 2/3", "description": "タテマチストリート展示エリア" },
+          "geometry": { "type": "Point", "coordinates": [136.654817, 36.562085] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU L", "description": "広坂エリア展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.656885, 36.560932] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU R", "description": "柿木畠エリア展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.655298, 36.561215] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU K", "description": "金沢市内北側展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.651234, 36.568123] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU Tatami", "description": "和室空間展示スポット" },
+          "geometry": { "type": "Point", "coordinates": [136.657102, 36.561489] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU Sky", "description": "屋上/高層系展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.653901, 36.563098] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 香林坊", "description": "香林坊エリアプロジェクト" },
+          "geometry": { "type": "Point", "coordinates": [136.653120, 36.562890] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 関連インフォメーション", "description": "チケットカウンター・総合案内" },
+          "geometry": { "type": "Point", "coordinates": [136.656040, 36.561405] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 展示エリア案内", "description": "広坂周辺マップ参照ポイント" },
+          "geometry": { "type": "Point", "coordinates": [136.655800, 36.561100] }
+        }
+      ]
+    };
+
+    // レイヤー描画とポップアップ設定
+    const kamuLayer = L.geoJSON(kamuGeoJSON, {
+      onEachFeature: function (feature, layer) {
+        if (feature.properties && feature.properties.name) {
+          let popup = `<strong>${feature.properties.name}</strong>`;
+          if (feature.properties.description) {
+            popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
+          }
+          layer.bindPopup(popup);
+        }
+      }
+    }).addTo(map);
+
+    // ピン全体が画面内に綺麗に収まるよう自動調整
+    if (kamuLayer.getBounds().isValid()) {
+      map.fitBounds(kamuLayer.getBounds(), { padding: [40, 40] });
     }
 
-    // Webブラウザ内完結のGPS現在地表示処理
+    // ブラウザ完結型の現在地（GPS）取得機能（アプリ立ち上がりゼロ）
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
@@ -73,40 +135,19 @@
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           const accuracy = position.coords.accuracy;
-          const userPos = { lat: lat, lng: lng };
 
-          // 既存の現在地マーカーを削除
-          if (userMarker) userMarker.setMap(null);
-          if (userCircle) userCircle.setMap(null);
+          if (userLocationMarker) map.removeLayer(userLocationMarker);
+          if (userLocationAccuracyCircle) map.removeLayer(userLocationAccuracyCircle);
 
-          // 現在地の精度を表す円を描画
-          userCircle = new google.maps.Circle({
-            map: map,
-            radius: accuracy,
-            fillColor: '#1a73e8',
-            fillOpacity: 0.15,
-            strokeColor: '#1a73e8',
-            strokeOpacity: 0.4,
-            strokeWeight: 1
-          });
-          userCircle.bindTo('center', userMarker = new google.maps.Marker({
-            position: userPos,
-            map: map,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: '#1a73e8',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
-            },
-            title: '現在の場所'
-          }), 'position');
+          userLocationAccuracyCircle = L.circle([lat, lng], {
+            radius: accuracy, color: '#1a73e8', fillColor: '#1a73e8', fillOpacity: 0.15, weight: 1
+          }).addTo(map);
 
-          // 現在地に画面をスムーズに移動
-          map.panTo(userPos);
-          map.setZoom(16);
+          userLocationMarker = L.circleMarker([lat, lng], {
+            radius: 8, color: '#ffffff', fillColor: '#1a73e8', fillOpacity: 1, weight: 3
+          }).addTo(map).bindPopup('現在の場所').openPopup();
 
+          map.setView([lat, lng], 16);
           status.innerText = "現在地を表示しました！";
           btn.disabled = false;
         },
@@ -117,9 +158,6 @@
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
-
-    // ページ読み込み完了時に地図を初期化
-    window.onload = initMap;
   </script>
 </body>
 </html>
