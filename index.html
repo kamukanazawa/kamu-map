@@ -9,34 +9,117 @@
     html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
     .wrapper { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
     .controls { padding: 12px; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 1000; text-align: center; }
-    .geo-btn { padding: 12px 20px; background-color: #1a73e8; color: #ffffff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; width: 100%; max-width: 320px; cursor: pointer; display: inline-block; text-decoration: none; }
+    .geo-btn { padding: 12px 20px; background-color: #1a73e8; color: #ffffff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; width: 100%; max-width: 320px; cursor: pointer; }
     .geo-btn:active { background-color: #1557b0; }
     .status-text { font-size: 12px; color: #666; margin-top: 4px; }
-    .map-container { flex: 1; width: 100%; height: 100%; position: relative; }
-    iframe { width: 100%; height: 100%; border: 0; }
+    #map { flex: 1; width: 100%; height: 100%; }
   </style>
+  <!-- Google Maps API の読み込み（APIキーなしでマイマップKMLレイヤーを表示可能） -->
+  <script src="https://maps.googleapis.com/maps/api/js"></script>
 </head>
 <body>
 
   <div class="wrapper">
     <div class="controls">
-      <button class="geo-btn" onclick="openCurrentLocationMap()">📍 現在地とルートを表示する</button>
-      <div id="statusText" class="status-text">ボタンを押すと現在地付きのマップを開きます</div>
+      <button id="geoBtn" class="geo-btn" onclick="locateUser()">📍 現在地を表示する</button>
+      <div id="statusText" class="status-text">ボタンを押すと現在地にジャンプします</div>
     </div>
-    <div class="map-container">
-      <!-- アプリ強制起動をブロックする sandbox 付きの純正マイマップ -->
-      <iframe 
-        src="https://www.google.com/maps/d/embed?mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U&ehbc=2E312F"
-        sandbox="allow-scripts allow-same-origin allow-popups-to-escape-sandbox">
-      </iframe>
-    </div>
+    <div id="map"></div>
   </div>
 
   <script>
-    function openCurrentLocationMap() {
-      // Googleマップで現在地とKAMUマイマップを表示
-      window.open("https://www.google.com/maps/d/viewer?mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U", "_blank");
+    let map;
+    let userMarker = null;
+    let userCircle = null;
+
+    function initMap() {
+      // 金沢市中心部を初期表示
+      const kanazawa = { lat: 36.561338, lng: 136.656209 };
+      
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 15,
+        center: kanazawa,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+
+      // Googleマイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の完全データをKmlLayerとして直接読み込み
+      // キャッシュを回避するためにタイムスタンプを付与
+      const kmlUrl = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U&nocache=" + new Date().getTime();
+      
+      const kmlLayer = new google.maps.KmlLayer({
+        url: kmlUrl,
+        map: map,
+        preserveViewport: false // マイマップの全ピンが収まるよう自動調整
+      });
     }
+
+    // Webブラウザ内完結のGPS現在地表示処理
+    function locateUser() {
+      const btn = document.getElementById('geoBtn');
+      const status = document.getElementById('statusText');
+
+      if (!navigator.geolocation) {
+        alert("お使いのブラウザは位置情報に対応していません。");
+        return;
+      }
+
+      status.innerText = "現在地を取得中...";
+      btn.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+          const userPos = { lat: lat, lng: lng };
+
+          // 既存の現在地マーカーを削除
+          if (userMarker) userMarker.setMap(null);
+          if (userCircle) userCircle.setMap(null);
+
+          // 現在地の精度を表す円を描画
+          userCircle = new google.maps.Circle({
+            map: map,
+            radius: accuracy,
+            fillColor: '#1a73e8',
+            fillOpacity: 0.15,
+            strokeColor: '#1a73e8',
+            strokeOpacity: 0.4,
+            strokeWeight: 1
+          });
+          userCircle.bindTo('center', userMarker = new google.maps.Marker({
+            position: userPos,
+            map: map,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#1a73e8',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            },
+            title: '現在の場所'
+          }), 'position');
+
+          // 現在地に画面をスムーズに移動
+          map.panTo(userPos);
+          map.setZoom(16);
+
+          status.innerText = "現在地を表示しました！";
+          btn.disabled = false;
+        },
+        (error) => {
+          btn.disabled = false;
+          status.innerText = "⚠️ 位置情報の利用を許可してください。";
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    // ページ読み込み完了時に地図を初期化
+    window.onload = initMap;
   </script>
 </body>
 </html>
