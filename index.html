@@ -7,6 +7,7 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,8 +31,7 @@
   </div>
 
   <script>
-    // 金沢市中心部を初期表示
-    const map = L.map('map').setView([36.561338, 136.656209], 15);
+    const map = L.map('map').setView([36.5613, 136.6562], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -41,81 +41,43 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // マイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の正確な全スポット定義
-    const kamuGeoJSON = {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU Center", "description": "KAMU kanazawa 本館展示スペース" },
-          "geometry": { "type": "Point", "coordinates": [136.656209, 36.561338] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU 2/3", "description": "タテマチストリート展示エリア" },
-          "geometry": { "type": "Point", "coordinates": [136.654817, 36.562085] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU L", "description": "広坂エリア展示スポット" },
-          "geometry": { "type": "Point", "coordinates": [136.656885, 36.560932] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU R", "description": "柿木畠エリア展示スポット" },
-          "geometry": { "type": "Point", "coordinates": [136.655298, 36.561215] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU K", "description": "金沢市内北側展示スポット" },
-          "geometry": { "type": "Point", "coordinates": [136.651234, 36.568123] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU Tatami", "description": "和室空間展示スポット" },
-          "geometry": { "type": "Point", "coordinates": [136.657102, 36.561489] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU Sky", "description": "屋上/高層系展示スペース" },
-          "geometry": { "type": "Point", "coordinates": [136.653901, 36.563098] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU 香林坊", "description": "香林坊エリアプロジェクト" },
-          "geometry": { "type": "Point", "coordinates": [136.653120, 36.562890] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU 関連インフォメーション", "description": "チケットカウンター・総合案内" },
-          "geometry": { "type": "Point", "coordinates": [136.656040, 36.561405] }
-        },
-        {
-          "type": "Feature",
-          "properties": { "name": "KAMU 展示エリア案内", "description": "広坂周辺マップ参照ポイント" },
-          "geometry": { "type": "Point", "coordinates": [136.655800, 36.561100] }
-        }
-      ]
-    };
+    // GoogleマイマップのKML直リンク
+    const googleKmlUrl = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
+    // CORSエラー回避プロキシ
+    const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(googleKmlUrl);
 
-    // レイヤー追加と自動ズーム調整
-    const kamuLayer = L.geoJSON(kamuGeoJSON, {
-      onEachFeature: function (feature, layer) {
-        if (feature.properties && feature.properties.name) {
-          let popup = `<strong>${feature.properties.name}</strong>`;
-          if (feature.properties.description) {
-            popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
+    // マイマップから最新データを取得して動的描画
+    fetch(proxyUrl)
+      .then(response => {
+        if (!response.ok) throw new Error("ネットワーク応答エラー");
+        return response.text();
+      })
+      .then(kmlText => {
+        const domParser = new DOMParser();
+        const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
+        const geoJson = toGeoJSON.kml(kmlDom);
+
+        const kmlLayer = L.geoJSON(geoJson, {
+          onEachFeature: function (feature, layer) {
+            if (feature.properties && feature.properties.name) {
+              let popup = `<strong>${feature.properties.name}</strong>`;
+              if (feature.properties.description) {
+                popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
+              }
+              layer.bindPopup(popup);
+            }
           }
-          layer.bindPopup(popup);
+        }).addTo(map);
+
+        if (kmlLayer.getBounds().isValid()) {
+          map.fitBounds(kmlLayer.getBounds(), { padding: [40, 40] });
         }
-      }
-    }).addTo(map);
+      })
+      .catch(error => {
+        console.error("マイマップ取得エラー:", error);
+      });
 
-    if (kamuLayer.getBounds().isValid()) {
-      map.fitBounds(kamuLayer.getBounds(), { padding: [50, 50] });
-    }
-
-    // 現在地取得（GPS）機能
+    // 現在地（GPS）取得処理
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
