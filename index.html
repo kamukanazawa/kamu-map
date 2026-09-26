@@ -4,156 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KAMU kanazawa MAP</title>
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
-
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
     .wrapper { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
-    .controls { padding: 12px; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 1000; text-align: center; }
-    .geo-btn { padding: 12px 20px; background-color: #1a73e8; color: #ffffff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; width: 100%; max-width: 320px; cursor: pointer; }
-    .geo-btn:active { background-color: #1557b0; }
-    .status-text { font-size: 12px; color: #666; margin-top: 4px; }
-    #map { flex: 1; width: 100%; height: 100%; }
+    .map-container { flex: 1; width: 100%; height: 100%; position: relative; }
+    iframe { width: 100%; height: 100%; border: 0; }
   </style>
 </head>
 <body>
 
   <div class="wrapper">
-    <div class="controls">
-      <button id="geoBtn" class="geo-btn" onclick="locateUser()">📍 現在地を表示する</button>
-      <div id="statusText" class="status-text">ボタンを押すと現在地にジャンプします</div>
+    <div class="map-container">
+      <!-- アプリ起動・外部遷移をブロックする sandbox 設定を追加 -->
+      <iframe 
+        src="https://www.google.com/maps/d/embed?mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U&ehbc=2E312F"
+        sandbox="allow-scripts allow-same-origin allow-popups-to-escape-sandbox">
+      </iframe>
     </div>
-    <div id="map"></div>
   </div>
 
-  <!-- マイマップのKML完全データ（外部通信なし・APIキー不要） -->
-  <script id="kmlData" type="text/xml">
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>KAMU kanazawa</name>
-    <Placemark>
-      <name>KAMU Center</name>
-      <description>金沢市広坂1-1-52</description>
-      <Point><coordinates>136.656209,36.561338,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU 3 create</name>
-      <description>金沢市竪町21</description>
-      <Point><coordinates>136.654817,36.562085,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU L</name>
-      <description>金沢市広坂1-1-52 近隣</description>
-      <Point><coordinates>136.656885,36.560932,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU R</name>
-      <description>金沢市柿木畠3-6</description>
-      <Point><coordinates>136.655298,36.561215,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU Black Symbol</name>
-      <description>金沢市香林坊2-12-10</description>
-      <Point><coordinates>136.653901,36.563098,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU Tatami</name>
-      <description>広坂エリア展示スポット</description>
-      <Point><coordinates>136.657102,36.561489,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU K</name>
-      <description>金沢市内展示スポット</description>
-      <Point><coordinates>136.651234,36.568123,0</coordinates></Point>
-    </Placemark>
-  </Document>
-</kml>
-  </script>
-
-  <script>
-    const map = L.map('map').setView([36.561338, 136.656209], 15);
-
-    // 完全無料・APIキー不要の標準地図タイル（OpenStreetMap）
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    let userLocationMarker = null;
-    let userLocationAccuracyCircle = null;
-
-    // データ読み込み処理
-    try {
-      const kmlText = document.getElementById('kmlData').textContent.trim();
-      const domParser = new DOMParser();
-      const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
-      const geoJson = toGeoJSON.kml(kmlDom);
-
-      const kmlLayer = L.geoJSON(geoJson, {
-        onEachFeature: function (feature, layer) {
-          if (feature.properties && feature.properties.name) {
-            let popup = `<strong>${feature.properties.name}</strong>`;
-            if (feature.properties.description) {
-              popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
-            }
-            layer.bindPopup(popup);
-          }
-        }
-      }).addTo(map);
-
-      if (kmlLayer.getBounds().isValid()) {
-        map.fitBounds(kmlLayer.getBounds(), { padding: [40, 40] });
-      }
-    } catch (e) {
-      console.error("データロードエラー:", e);
-    }
-
-    // GPS（現在地）取得機能（アプリ起動なし・ブラウザ内で完了）
-    function locateUser() {
-      const btn = document.getElementById('geoBtn');
-      const status = document.getElementById('statusText');
-
-      if (!navigator.geolocation) {
-        alert("お使いのブラウザは位置情報に対応していません。");
-        return;
-      }
-
-      status.innerText = "現在地を取得中...";
-      btn.disabled = true;
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const accuracy = position.coords.accuracy;
-
-          if (userLocationMarker) map.removeLayer(userLocationMarker);
-          if (userLocationAccuracyCircle) map.removeLayer(userLocationAccuracyCircle);
-
-          userLocationAccuracyCircle = L.circle([lat, lng], {
-            radius: accuracy, color: '#1a73e8', fillColor: '#1a73e8', fillOpacity: 0.15, weight: 1
-          }).addTo(map);
-
-          userLocationMarker = L.circleMarker([lat, lng], {
-            radius: 8, color: '#ffffff', fillColor: '#1a73e8', fillOpacity: 1, weight: 3
-          }).addTo(map).bindPopup('現在の場所').openPopup();
-
-          map.setView([lat, lng], 16);
-          status.innerText = "現在地を表示しました！";
-          btn.disabled = false;
-        },
-        (error) => {
-          btn.disabled = false;
-          status.innerText = "⚠️ 位置情報の利用を許可してください。";
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
-    }
-  </script>
 </body>
 </html>
