@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>KAMU kanazawa MAP</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,16 +11,70 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-    .wrapper { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
-    .controls { padding: 12px; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 1000; text-align: center; }
-    .geo-btn { padding: 12px 20px; background-color: #1a73e8; color: #ffffff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; width: 100%; max-width: 320px; cursor: pointer; }
-    .geo-btn:active { background-color: #1557b0; }
-    .status-text { font-size: 12px; color: #666; margin-top: 4px; }
-    .legend { margin-top: 8px; display: flex; justify-content: center; gap: 12px; font-size: 11px; color: #333; }
-    .legend-item { display: flex; align-items: center; gap: 4px; }
-    .legend-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    #map { flex: 1; width: 100%; height: 100%; }
+    html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+    
+    .wrapper { display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100vw; }
+    
+    /* コントロールヘッダーのレスポンシブ最適化 */
+    .controls { 
+      padding: 10px 16px; 
+      background: rgba(255, 255, 255, 0.95); 
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12); 
+      z-index: 1000; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .geo-btn { 
+      padding: 10px 18px; 
+      background-color: #1a73e8; 
+      color: #ffffff; 
+      border: none; 
+      border-radius: 24px; 
+      font-size: 14px; 
+      font-weight: 700; 
+      width: 100%; 
+      max-width: 280px; 
+      cursor: pointer; 
+      box-shadow: 0 2px 5px rgba(26,115,232,0.3);
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .geo-btn:active { background-color: #1557b0; transform: scale(0.98); }
+    .geo-btn:disabled { background-color: #9aa0a6; box-shadow: none; cursor: not-allowed; }
+    
+    .status-text { font-size: 11px; color: #5f6368; }
+    
+    /* 凡例（レジェンド）表示の最適化 */
+    .legend { 
+      display: flex; 
+      flex-wrap: wrap; 
+      justify-content: center; 
+      gap: 8px 12px; 
+      font-size: 12px; 
+      color: #3c4043; 
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .legend-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
+
+    #map { flex: 1; width: 100%; height: 100%; background: #e5e3df; }
+
+    /* モバイルでのポップアップUI最適化 */
+    .leaflet-popup-content-wrapper { border-radius: 12px; padding: 4px; box-shadow: 0 3px 14px rgba(0,0,0,0.25); }
+    .leaflet-popup-content { margin: 10px 12px; font-size: 13px; line-height: 1.4; }
+    
+    /* PC表示でのレイアウト微調整 */
+    @media (min-width: 768px) {
+      .controls { flex-direction: row; justify-content: space-between; padding: 12px 24px; }
+      .geo-btn { width: auto; max-width: none; }
+      .legend { gap: 16px; font-size: 13px; }
+      .status-text { text-align: right; }
+    }
   </style>
 </head>
 <body>
@@ -28,19 +82,24 @@
   <div class="wrapper">
     <div class="controls">
       <button id="geoBtn" class="geo-btn" onclick="locateUser()">📍 現在地を表示する</button>
-      <div id="statusText" class="status-text">ボタンを押すと現在地にジャンプします</div>
       <div class="legend">
-        <span class="legend-item"><span class="legend-color" style="background:#e53935;"></span>KAMU展示会場</span>
+        <span class="legend-item"><span class="legend-color" style="background:#e53935;"></span>展示会場</span>
         <span class="legend-item"><span class="legend-color" style="background:#1e88e5;"></span>TOWN hack</span>
         <span class="legend-item"><span class="legend-color" style="background:#43a047;"></span>ピザコラボ</span>
       </div>
+      <div id="statusText" class="status-text">現在地ボタンで周辺ルートを確認</div>
     </div>
     <div id="map"></div>
   </div>
 
   <script>
-    // 金沢を中心とした初期表示
-    const map = L.map('map').setView([36.5613, 136.6562], 15);
+    // 金沢周辺を初期表示
+    const map = L.map('map', {
+      zoomControl: false // PC/スマホ用に位置を右下に再配置するため標準位置はOFF
+    }).setView([36.5613, 136.6562], 15);
+
+    // ズームボタンを右下に配置（スマホ操作で押しやすく設定）
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -51,26 +110,13 @@
     let userLocationAccuracyCircle = null;
     const allBounds = L.latLngBounds([]);
 
-    // ご提示いただいた3つのカテゴリ（レイヤー）設定
+    // 3カテゴリ（レイヤー）設定
     const categories = [
-      {
-        name: "KAMU美術館展示会場",
-        lid: "rcxsOnhDcn4",
-        color: "#e53935" // 赤色ピン
-      },
-      {
-        name: "TOWN hack",
-        lid: "LPdGaYpGTbs",
-        color: "#1e88e5" // 青色ピン
-      },
-      {
-        name: "ピザコラボショップ",
-        lid: "emLMIZ1cnH0",
-        color: "#43a047" // 緑色ピン
-      }
+      { name: "KAMU美術館展示会場", lid: "rcxsOnhDcn4", color: "#e53935" },
+      { name: "TOWN hack", lid: "LPdGaYpGTbs", color: "#1e88e5" },
+      { name: "ピザコラボショップ", lid: "emLMIZ1cnH0", color: "#43a047" }
     ];
 
-    // プロキシ経由で各カテゴリのKMLを取得して描画
     const mid = "1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
     let loadedCount = 0;
 
@@ -90,19 +136,19 @@
           const layer = L.geoJSON(geoJson, {
             pointToLayer: function (feature, latlng) {
               return L.circleMarker(latlng, {
-                radius: 8,
+                radius: 9,
                 fillColor: cat.color,
                 color: "#ffffff",
                 weight: 2,
                 opacity: 1,
-                fillOpacity: 0.9
+                fillOpacity: 0.95
               });
             },
             onEachFeature: function (feature, layer) {
               if (feature.properties && feature.properties.name) {
-                let popup = `<strong>[${cat.name}]</strong><br><strong>${feature.properties.name}</strong>`;
+                let popup = `<div style="font-size:11px;color:#888;margin-bottom:2px;">${cat.name}</div><strong style="font-size:14px;">${feature.properties.name}</strong>`;
                 if (feature.properties.description) {
-                  popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
+                  popup += `<br><span style="font-size:12px;color:#555;display:inline-block;margin-top:4px;">${feature.properties.description}</span>`;
                 }
                 layer.bindPopup(popup);
               }
@@ -115,7 +161,7 @@
 
           loadedCount++;
           if (loadedCount === categories.length && allBounds.isValid()) {
-            map.fitBounds(allBounds, { padding: [40, 40] });
+            map.fitBounds(allBounds, { padding: [30, 30] });
           }
         })
         .catch(err => {
@@ -123,7 +169,7 @@
         });
     });
 
-    // 現在地（GPS）取得処理（アプリ移行なし・ブラウザ内表示）
+    // 現在地（GPS）取得機能
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
