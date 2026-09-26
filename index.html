@@ -7,7 +7,6 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,88 +29,44 @@
     <div id="map"></div>
   </div>
 
-  <!-- マイマップ（mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U）の実KMLデータ -->
-  <script id="kmlData" type="text/xml">
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>KAMU kanazawa</name>
-    <description>KAMU kanazawaの作品展示場所、関連企画情報を表示します</description>
-    <Placemark>
-      <name>KAMU Center</name>
-      <description>広坂1-1-52</description>
-      <Point><coordinates>136.656209,36.561338,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU 3 create</name>
-      <description>竪町21</description>
-      <Point><coordinates>136.654817,36.562085,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU L</name>
-      <description>広坂1-1-52 近隣</description>
-      <Point><coordinates>136.656885,36.560932,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU R</name>
-      <description>柿木畠3-6</description>
-      <Point><coordinates>136.655298,36.561215,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU Black Symbol</name>
-      <description>香林坊2-12-10</description>
-      <Point><coordinates>136.653901,36.563098,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU Tatami</name>
-      <description>広坂エリア展示スポット</description>
-      <Point><coordinates>136.657102,36.561489,0</coordinates></Point>
-    </Placemark>
-    <Placemark>
-      <name>KAMU K</name>
-      <description>金沢市内展示スポット</description>
-      <Point><coordinates>136.651234,36.568123,0</coordinates></Point>
-    </Placemark>
-  </Document>
-</kml>
-  </script>
-
   <script>
+    // 金沢市中心部を初期表示
     const map = L.map('map').setView([36.561338, 136.656209], 15);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // 高速で安定した地図タイル（CartoDB）を使用
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // 埋め込まれたKMLデータを安全に直接ロード（通信なし）
-    try {
-      const kmlText = document.getElementById('kmlData').textContent.trim();
-      const domParser = new DOMParser();
-      const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
-      const geoJson = toGeoJSON.kml(kmlDom);
+    // マイマップから直接抽出したGeoJSON直接定義データ
+    const kamuData = {
+      "type": "FeatureCollection",
+      "features": [
+        { "type": "Feature", "properties": { "name": "KAMU Center", "desc": "広坂1-1-52" }, "geometry": { "type": "Point", "coordinates": [136.656209, 36.561338] } },
+        { "type": "Feature", "properties": { "name": "KAMU 3 create", "desc": "竪町21" }, "geometry": { "type": "Point", "coordinates": [136.654817, 36.562085] } },
+        { "type": "Feature", "properties": { "name": "KAMU L", "desc": "広坂1-1-52 近隣" }, "geometry": { "type": "Point", "coordinates": [136.656885, 36.560932] } },
+        { "type": "Feature", "properties": { "name": "KAMU R", "desc": "柿木畠3-6" }, "geometry": { "type": "Point", "coordinates": [136.655298, 36.561215] } },
+        { "type": "Feature", "properties": { "name": "KAMU Black Symbol", "desc": "香林坊2-12-10" }, "geometry": { "type": "Point", "coordinates": [136.653901, 36.563098] } },
+        { "type": "Feature", "properties": { "name": "KAMU Tatami", "desc": "広坂エリア" }, "geometry": { "type": "Point", "coordinates": [136.657102, 36.561489] } },
+        { "type": "Feature", "properties": { "name": "KAMU K", "desc": "金沢市内スポット" }, "geometry": { "type": "Point", "coordinates": [136.651234, 36.568123] } }
+      ]
+    };
 
-      const kmlLayer = L.geoJSON(geoJson, {
-        onEachFeature: function (feature, layer) {
-          if (feature.properties && feature.properties.name) {
-            let popup = `<strong>${feature.properties.name}</strong>`;
-            if (feature.properties.description) {
-              popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
-            }
-            layer.bindPopup(popup);
-          }
+    // 標準GeoJSONレイヤーでの描画（外部読み込み一切なし）
+    const geojsonLayer = L.geoJSON(kamuData, {
+      onEachFeature: function (feature, layer) {
+        if (feature.properties && feature.properties.name) {
+          layer.bindPopup(`<strong>${feature.properties.name}</strong><br><span style="font-size:12px;color:#555;">${feature.properties.desc}</span>`);
         }
-      }).addTo(map);
-
-      if (kmlLayer.getBounds().isValid()) {
-        map.fitBounds(kmlLayer.getBounds(), { padding: [40, 40] });
       }
-    } catch (e) {
-      console.error("マップデータロード失敗:", e);
-    }
+    }).addTo(map);
+
+    // マップ表示位置の自動フィット
+    map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
 
     // 現在地（GPS）取得機能
     function locateUser() {
