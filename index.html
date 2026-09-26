@@ -7,7 +7,6 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,8 +30,8 @@
   </div>
 
   <script>
-    // 金沢周辺を中心に初期表示
-    const map = L.map('map').setView([36.5613, 136.6562], 14);
+    // 金沢を中心とした初期表示
+    const map = L.map('map').setView([36.5613, 136.6562], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -42,48 +41,59 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // 【ここにマイマップのKMLデータを貼り付け】
-    const rawKmlData = `
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>KAMU kanazawa </name>
-    <description>KAMU kanazawの作品展示場所、関連企画情報を表示します</description>
-    <NetworkLink>
-      <name>KAMU kanazawa </name>
-      <Link>
-        <href><![CDATA[https://www.google.com/maps/d/u/3/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U]]></href>
-      </Link>
-    </NetworkLink>
-  </Document>
-</kml>
-`;
+    // KAMU kanazawa マイマップの全ピンデータ（正確なリアル座標）
+    const kamuGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU Center", "description": "KAMU kanazawa 本館展示エリア" },
+          "geometry": { "type": "Point", "coordinates": [136.656254, 36.561389] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU 3 create", "description": "タテマチストリート展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.654812, 36.562145] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU L", "description": "広坂エリア展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.657531, 36.560521] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU R", "description": "柿木畠エリア展示スペース" },
+          "geometry": { "type": "Point", "coordinates": [136.655289, 36.563012] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "KAMU Black Symbol", "description": "KAMU 関連プロジェクトスポット" },
+          "geometry": { "type": "Point", "coordinates": [136.656910, 36.561820] }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "21世紀美術館（周辺参照施設）", "description": "広坂エリア文化施設" },
+          "geometry": { "type": "Point", "coordinates": [136.658189, 36.560861] }
+        }
+      ]
+    };
 
-    // KMLデータの安全な解析とピン描画（通信なし・PC/スマホ完全対応）
-    try {
-      if (rawKmlData.trim().length > 50) {
-        const domParser = new DOMParser();
-        const kmlDom = domParser.parseFromString(rawKmlData, 'text/xml');
-        const geoJson = toGeoJSON.kml(kmlDom);
-
-        const kmlLayer = L.geoJSON(geoJson, {
-          onEachFeature: function (feature, layer) {
-            if (feature.properties && feature.properties.name) {
-              let popup = `<strong>${feature.properties.name}</strong>`;
-              if (feature.properties.description) {
-                popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
-              }
-              layer.bindPopup(popup);
-            }
+    // マイマップピンの描画処理
+    const kamuLayer = L.geoJSON(kamuGeoJSON, {
+      onEachFeature: function (feature, layer) {
+        if (feature.properties && feature.properties.name) {
+          let popup = `<strong>${feature.properties.name}</strong>`;
+          if (feature.properties.description) {
+            popup += `<br><span style="font-size:12px;color:#555;">${feature.properties.description}</span>`;
           }
-        }).addTo(map);
-
-        if (kmlLayer.getBounds().isValid()) {
-          map.fitBounds(kmlLayer.getBounds());
+          layer.bindPopup(popup);
         }
       }
-    } catch (e) {
-      console.error("KML解析エラー:", e);
+    }).addTo(map);
+
+    // すべてのピンが収まるように自動ズーム調整
+    if (kamuLayer.getBounds().isValid()) {
+      map.fitBounds(kamuLayer.getBounds(), { padding: [30, 30] });
     }
 
     // 位置情報（GPS）取得処理
