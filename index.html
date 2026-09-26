@@ -41,20 +41,18 @@
     let userLocationMarker = null;
     let userLocationAccuracyCircle = null;
 
-    // GoogleマイマップのKML直リンク
-    const googleKmlUrl = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
-    // CORSエラー回避プロキシ
-    const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(googleKmlUrl);
+    // 無料の高速CORSプロキシサービス経由でGoogleマイマップの最新KMLを直接リアルタイム取得
+    const targetKml = "https://www.google.com/maps/d/kml?forcekml=1&mid=1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
+    const safeUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetKml);
 
-    // マイマップから最新データを取得して動的描画
-    fetch(proxyUrl)
-      .then(response => {
-        if (!response.ok) throw new Error("ネットワーク応答エラー");
-        return response.text();
+    fetch(safeUrl)
+      .then(res => {
+        if (!res.ok) throw new Error("取得失敗");
+        return res.text();
       })
       .then(kmlText => {
-        const domParser = new DOMParser();
-        const kmlDom = domParser.parseFromString(kmlText, 'text/xml');
+        const parser = new DOMParser();
+        const kmlDom = parser.parseFromString(kmlText, "text/xml");
         const geoJson = toGeoJSON.kml(kmlDom);
 
         const kmlLayer = L.geoJSON(geoJson, {
@@ -70,14 +68,14 @@
         }).addTo(map);
 
         if (kmlLayer.getBounds().isValid()) {
-          map.fitBounds(kmlLayer.getBounds(), { padding: [40, 40] });
+          map.fitBounds(kmlLayer.getBounds(), { padding: [30, 30] });
         }
       })
-      .catch(error => {
-        console.error("マイマップ取得エラー:", error);
+      .catch(err => {
+        console.error("マップデータ読み込みエラー:", err);
       });
 
-    // 現在地（GPS）取得処理
+    // 位置情報（GPS）取得処理
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
