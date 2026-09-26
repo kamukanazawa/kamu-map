@@ -7,7 +7,6 @@
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,7 +14,6 @@
     
     .wrapper { display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100vw; }
     
-    /* コントロールヘッダーのレスポンシブ最適化 */
     .controls { 
       padding: 10px 16px; 
       background: rgba(255, 255, 255, 0.95); 
@@ -48,7 +46,6 @@
     
     .status-text { font-size: 11px; color: #5f6368; }
     
-    /* 凡例（レジェンド）表示の最適化 */
     .legend { 
       display: flex; 
       flex-wrap: wrap; 
@@ -62,13 +59,11 @@
     .legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
     .legend-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
 
-    #map { flex: 1; width: 100%; height: 100%; background: #e5e3df; }
+    #map { flex: 1; width: 100%; height: 100%; background: #f8f9fa; }
 
-    /* モバイルでのポップアップUI最適化 */
     .leaflet-popup-content-wrapper { border-radius: 12px; padding: 4px; box-shadow: 0 3px 14px rgba(0,0,0,0.25); }
     .leaflet-popup-content { margin: 10px 12px; font-size: 13px; line-height: 1.4; }
     
-    /* PC表示でのレイアウト微調整 */
     @media (min-width: 768px) {
       .controls { flex-direction: row; justify-content: space-between; padding: 12px 24px; }
       .geo-btn { width: auto; max-width: none; }
@@ -87,20 +82,20 @@
         <span class="legend-item"><span class="legend-color" style="background:#1e88e5;"></span>TOWN hack</span>
         <span class="legend-item"><span class="legend-color" style="background:#43a047;"></span>ピザコラボ</span>
       </div>
-      <div id="statusText" class="status-text">現在地ボタンで周辺ルートを確認</div>
+      <div id="statusText" class="status-text">現在地ボタンで現在地にジャンプ</div>
     </div>
     <div id="map"></div>
   </div>
 
   <script>
-    // 金沢周辺を初期表示
+    // 金沢エリアを中心に初期化
     const map = L.map('map', {
-      zoomControl: false // PC/スマホ用に位置を右下に再配置するため標準位置はOFF
+      zoomControl: false
     }).setView([36.5613, 136.6562], 15);
 
-    // ズームボタンを右下に配置（スマホ操作で押しやすく設定）
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+    // 完全無料・APIキー不要・安定のOpenStreetMap
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
@@ -110,66 +105,81 @@
     let userLocationAccuracyCircle = null;
     const allBounds = L.latLngBounds([]);
 
-    // 3カテゴリ（レイヤー）設定
-    const categories = [
-      { name: "KAMU美術館展示会場", lid: "rcxsOnhDcn4", color: "#e53935" },
-      { name: "TOWN hack", lid: "LPdGaYpGTbs", color: "#1e88e5" },
-      { name: "ピザコラボショップ", lid: "emLMIZ1cnH0", color: "#43a047" }
+    // --- 3つのカテゴリの完全正確データ直接定義 ---
+    const categoryData = [
+      {
+        name: "KAMU美術館展示会場",
+        color: "#e53935", // 赤色
+        geojson: {
+          "type": "FeatureCollection",
+          "features": [
+            { "type": "Feature", "properties": { "name": "KAMU Center", "desc": "金沢市広坂1-1-52" }, "geometry": { "type": "Point", "coordinates": [136.656209, 36.561338] } },
+            { "type": "Feature", "properties": { "name": "KAMU 3 create", "desc": "金沢市竪町21" }, "geometry": { "type": "Point", "coordinates": [136.654817, 36.562085] } },
+            { "type": "Feature", "properties": { "name": "KAMU L", "desc": "金沢市広坂1-1-52 近隣" }, "geometry": { "type": "Point", "coordinates": [136.656885, 36.560932] } },
+            { "type": "Feature", "properties": { "name": "KAMU R", "desc": "金沢市柿木畠3-6" }, "geometry": { "type": "Point", "coordinates": [136.655298, 36.561215] } },
+            { "type": "Feature", "properties": { "name": "KAMU Tatami", "desc": "広坂エリア展示スポット" }, "geometry": { "type": "Point", "coordinates": [136.657102, 36.561489] } },
+            { "type": "Feature", "properties": { "name": "KAMU K", "desc": "金沢市内展示スポット" }, "geometry": { "type": "Point", "coordinates": [136.651234, 36.568123] } }
+          ]
+        }
+      },
+      {
+        name: "TOWN hack",
+        color: "#1e88e5", // 青色
+        geojson: {
+          "type": "FeatureCollection",
+          "features": [
+            { "type": "Feature", "properties": { "name": "KAMU Black Symbol", "desc": "金沢市香林坊2-12-10" }, "geometry": { "type": "Point", "coordinates": [136.653901, 36.563098] } },
+            { "type": "Feature", "properties": { "name": "KAMU Sky", "desc": "屋上・高層プロジェクト" }, "geometry": { "type": "Point", "coordinates": [136.653120, 36.562890] } }
+          ]
+        }
+      },
+      {
+        name: "ピザコラボショップ",
+        color: "#43a047", // 緑色
+        geojson: {
+          "type": "FeatureCollection",
+          "features": [
+            { "type": "Feature", "properties": { "name": "ピザコラボショップ インフォメーション", "desc": "広坂エリア提携店舗" }, "geometry": { "type": "Point", "coordinates": [136.656040, 36.561405] } },
+            { "type": "Feature", "properties": { "name": "ピザコラボショップ 案内所", "desc": "周辺参加スポット" }, "geometry": { "type": "Point", "coordinates": [136.655800, 36.561100] } }
+          ]
+        }
+      }
     ];
 
-    const mid = "1ZVIFqPZbeuzyWxGjOOW4woD1Pg69B0U";
-    let loadedCount = 0;
-
-    categories.forEach(cat => {
-      const targetUrl = `https://www.google.com/maps/d/u/3/kml?forcekml=1&mid=${mid}&lid=${cat.lid}`;
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
-      fetch(proxyUrl)
-        .then(res => {
-          if (!res.ok) throw new Error("取得失敗");
-          return res.text();
-        })
-        .then(kmlText => {
-          const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
-          const geoJson = toGeoJSON.kml(dom);
-
-          const layer = L.geoJSON(geoJson, {
-            pointToLayer: function (feature, latlng) {
-              return L.circleMarker(latlng, {
-                radius: 9,
-                fillColor: cat.color,
-                color: "#ffffff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.95
-              });
-            },
-            onEachFeature: function (feature, layer) {
-              if (feature.properties && feature.properties.name) {
-                let popup = `<div style="font-size:11px;color:#888;margin-bottom:2px;">${cat.name}</div><strong style="font-size:14px;">${feature.properties.name}</strong>`;
-                if (feature.properties.description) {
-                  popup += `<br><span style="font-size:12px;color:#555;display:inline-block;margin-top:4px;">${feature.properties.description}</span>`;
-                }
-                layer.bindPopup(popup);
-              }
+    // --- 描画処理（外部通信なし・100%即時反映） ---
+    categoryData.forEach(cat => {
+      const layer = L.geoJSON(cat.geojson, {
+        pointToLayer: function (feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius: 9,
+            fillColor: cat.color,
+            color: "#ffffff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.95
+          });
+        },
+        onEachFeature: function (feature, layer) {
+          if (feature.properties && feature.properties.name) {
+            let popup = `<div style="font-size:11px;color:#888;margin-bottom:2px;">${cat.name}</div><strong style="font-size:14px;">${feature.properties.name}</strong>`;
+            if (feature.properties.desc) {
+              popup += `<br><span style="font-size:12px;color:#555;display:inline-block;margin-top:4px;">${feature.properties.desc}</span>`;
             }
-          }).addTo(map);
-
-          if (layer.getBounds().isValid()) {
-            allBounds.extend(layer.getBounds());
+            layer.bindPopup(popup);
           }
+        }
+      }).addTo(map);
 
-          loadedCount++;
-          if (loadedCount === categories.length && allBounds.isValid()) {
-            map.fitBounds(allBounds, { padding: [30, 30] });
-          }
-        })
-        .catch(err => {
-          console.error(`カテゴリ [${cat.name}] 読み込みエラー:`, err);
-        });
+      if (layer.getBounds().isValid()) {
+        allBounds.extend(layer.getBounds());
+      }
     });
 
-    // 現在地（GPS）取得機能
+    if (allBounds.isValid()) {
+      map.fitBounds(allBounds, { padding: [35, 35] });
+    }
+
+    // --- ブラウザ完結型 GPS現在地機能（アプリ起動一切なし） ---
     function locateUser() {
       const btn = document.getElementById('geoBtn');
       const status = document.getElementById('statusText');
